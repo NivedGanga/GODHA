@@ -2,83 +2,236 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#101820" />
-    <title>GODHA · Connection Lab</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f28a32" />
+    <meta name="description" content="GODHA's cheerful simulated room-flow prototype." />
+    <title>GODHA · Room Preview</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <main class="shell">
-      <header class="hero">
-        <div class="eyebrow">SPRINT 1 · FOUNDATION PROTOTYPE</div>
-        <h1>GODHA <span>Connection Lab</span></h1>
-        <p>Create a room, invite up to three people, and move together over direct peer connections.</p>
-      </header>
-
-      <section class="panel controls" aria-labelledby="room-heading">
-        <h2 id="room-heading">Room</h2>
-        <div class="actions">
-          <button id="create-button" class="button primary" type="button">Create room</button>
-          <div class="join-form">
-            <label class="visually-hidden" for="room-code-input">Room code</label>
-            <input id="room-code-input" name="room-code" autocomplete="off" maxlength="6" placeholder="ROOM CODE" aria-describedby="join-help" />
-            <button id="join-button" class="button secondary" type="button">Join</button>
-          </div>
+    <main id="app" class="app-shell">
+      <section id="boot-screen" class="screen splash-screen" aria-labelledby="boot-title">
+        <div class="splash-brand brand-mark" aria-label="GODHA">
+          <span class="brand-rays" aria-hidden="true">✦</span>
+          <span class="brand-word">GODHA</span>
+          <span class="brand-rays" aria-hidden="true">✦</span>
         </div>
-        <p id="join-help" class="hint">Enter the six-character code shared by the host.</p>
-
-        <div id="room-details" class="room-details" hidden>
-          <div class="code-row">
-            <div>
-              <div class="label">Room code</div>
-              <div id="room-code-display" class="room-code">------</div>
-            </div>
-            <button id="copy-button" class="button quiet" type="button">Copy code</button>
-          </div>
-          <div class="room-actions">
-            <button id="lock-button" class="button quiet" type="button" hidden>Lock joins</button>
-            <button id="diagnostics-button" class="button quiet" type="button">Peer diagnostics</button>
-            <button id="leave-button" class="button danger" type="button">Leave room</button>
-          </div>
+        <h1 id="boot-title" class="visually-hidden">Loading GODHA</h1>
+        <div class="loading-scene boot-scene" aria-hidden="true">
+          <div class="sun-glow"></div>
+          <div class="hill hill-back"></div>
+          <div class="hill hill-front"></div>
+          <img class="scene-panda" src="/assets/player-panda.png" alt="" />
+          <span class="scene-spark spark-one">✦</span>
+          <span class="scene-spark spark-two">✦</span>
         </div>
-        <div id="status" class="status" role="status" aria-live="polite">Not connected to a room.</div>
-        <pre id="diagnostics" class="diagnostics" aria-live="polite" hidden></pre>
+        <div class="splash-progress-wrap">
+          <div class="progress-track" role="progressbar" aria-label="Startup loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="4">
+            <span id="boot-progress" class="progress-fill"></span>
+          </div>
+          <p class="splash-caption">Loading...</p>
+        </div>
+        <span class="simulated-stamp">SIMULATED PROTOTYPE</span>
       </section>
 
-      <section class="workspace">
-        <section class="panel player-panel" aria-labelledby="players-heading">
-          <div class="section-heading">
-            <h2 id="players-heading">Players</h2>
-            <span id="player-count" class="count">0 / 4</span>
-          </div>
-          <ul id="player-list" class="player-list" aria-live="polite">
-            <li class="empty">Create or join a room to see players.</li>
-          </ul>
-          <div class="legend">
-            <span><i class="dot connected"></i> Connected</span>
-            <span><i class="dot connecting"></i> Connecting</span>
-            <span><i class="dot disconnected"></i> Disconnected</span>
-          </div>
-        </section>
-
-        <section class="panel canvas-panel" aria-labelledby="canvas-heading">
-          <div class="section-heading">
-            <div>
-              <h2 id="canvas-heading">Shared position test</h2>
-              <p class="hint">Use arrow keys to move your dot, or click/tap anywhere on the field.</p>
-            </div>
-            <span class="network-badge">P2P DATA</span>
-          </div>
-          <div class="canvas-wrap">
-            <canvas id="playfield" width="640" height="400" aria-label="Shared player position test field"></canvas>
-          </div>
-        </section>
+      <section id="name-screen" class="screen name-screen" aria-labelledby="name-title" hidden>
+        <div class="brand-mark screen-brand" aria-label="GODHA">
+          <span class="brand-rays" aria-hidden="true">✦</span>
+          <h1 class="brand-word">GODHA</h1>
+          <span class="brand-rays" aria-hidden="true">✦</span>
+        </div>
+        <div class="name-content">
+          <h2 id="name-title" class="visually-hidden">Choose your player name</h2>
+          <img class="name-panda" src="/assets/player-panda.png" alt="A panda holding a game controller" />
+          <form id="name-form" class="name-form" novalidate>
+            <label class="name-field" for="name-input">
+              <span class="person-icon" aria-hidden="true">●</span>
+              <input id="name-input" name="player-name" type="text" maxlength="24" autocomplete="nickname" placeholder="Enter player name" aria-describedby="name-error" />
+            </label>
+            <p id="name-error" class="field-error" role="alert" hidden></p>
+            <button class="pill-button cream-button continue-button" type="submit">
+              <span class="play-icon" aria-hidden="true">▶</span>
+              <span>CONTINUE</span>
+            </button>
+          </form>
+          <p class="screen-note">Your name is only used in this local preview.</p>
+        </div>
       </section>
 
-      <footer class="footer">
-        Signaling is used for room setup and WebRTC negotiation. Position updates travel through peer data channels.
-      </footer>
+      <section id="home-screen" class="screen home-screen" aria-labelledby="home-title" hidden>
+        <div class="home-topline">
+          <div class="brand-mark home-brand" aria-label="GODHA">
+            <span class="brand-rays" aria-hidden="true">✦</span>
+            <h1 id="home-title" class="brand-word">GODHA</h1>
+            <span class="brand-rays" aria-hidden="true">✦</span>
+          </div>
+          <div class="profile-chip" aria-label="Current player">
+            <span id="profile-avatar" class="profile-avatar" aria-hidden="true">?</span>
+            <span id="profile-name" class="profile-name">Player</span>
+          </div>
+        </div>
+        <div class="home-layout">
+          <nav class="home-actions" aria-label="Main menu">
+            <button id="create-room-button" class="home-action is-selected" type="button">
+              <span class="action-arrow" aria-hidden="true">▶</span>
+              <span>CREATE ROOM</span>
+            </button>
+            <button id="open-join-button" class="home-action" type="button">
+              <span class="action-arrow" aria-hidden="true">▶</span>
+              <span>JOIN ROOM</span>
+            </button>
+            <button id="open-settings-button" class="home-action" type="button">
+              <span class="action-arrow" aria-hidden="true">▶</span>
+              <span>SETTINGS</span>
+            </button>
+            <p class="simulated-note"><span class="status-dot"></span> Rooms are simulated</p>
+          </nav>
+          <figure class="sofa-figure">
+            <img src="/assets/home-cat-corgi.png" alt="A soft toy-style cat and corgi playing games together on a sofa" />
+          </figure>
+        </div>
+      </section>
+
+      <section id="lobby-screen" class="screen lobby-screen" aria-labelledby="lobby-title" hidden>
+        <div class="lobby-layout">
+          <figure class="cabinet-figure">
+            <img src="/assets/cabinet.png" alt="A colorful cabinet with a fishbowl and clock" />
+          </figure>
+          <section class="lobby-panel" aria-label="Custom game room">
+            <header class="lobby-header">
+              <div class="lobby-title-wrap">
+                <h1 id="lobby-title">CUSTOM GAME</h1>
+                <span class="simulated-badge"><span class="status-dot"></span> SIMULATED</span>
+              </div>
+              <div class="lobby-top-actions">
+                <button id="copy-code-button" class="code-chip" type="button" aria-label="Copy room code">
+                  <span class="code-chip-label">Room Code</span>
+                  <strong id="room-code-value">------</strong>
+                  <span class="copy-icon" aria-hidden="true">▢</span>
+                </button>
+                <button id="host-start-button" class="pill-button start-button" type="button" hidden>
+                  <span aria-hidden="true">▶</span> START
+                </button>
+                <button id="guest-ready-button" class="pill-button ready-button" type="button" hidden>✓ READY</button>
+              </div>
+            </header>
+
+            <div class="map-row">
+              <div class="meadow-thumb" aria-hidden="true">
+                <span class="thumb-sun"></span><span class="thumb-cloud cloud-left"></span><span class="thumb-cloud cloud-right"></span><span class="thumb-hill thumb-hill-one"></span><span class="thumb-hill thumb-hill-two"></span><span class="thumb-path"></span>
+              </div>
+              <div class="map-copy">
+                <span class="eyebrow">SELECTED MAP</span>
+                <strong id="map-name">Sunny Meadow</strong>
+              </div>
+              <button id="open-maps-button" class="pill-button map-button" type="button">▣ <span>MAPS</span></button>
+            </div>
+
+            <div id="room-summary" class="room-summary" aria-live="polite"></div>
+            <div id="team-grid" class="team-grid" aria-label="Teams and player slots"></div>
+
+            <div id="host-demo-tools" class="demo-tools" hidden>
+              <div>
+                <span class="eyebrow">HOST TEST CONTROLS</span>
+                <p>Add simulated guests to test readiness and the six-player limit.</p>
+              </div>
+              <button id="add-guest-button" class="pill-button test-button" type="button">＋ ADD SIMULATED GUEST</button>
+            </div>
+            <div id="guest-demo-tools" class="demo-tools guest-demo-tools" hidden>
+              <div>
+                <span class="eyebrow">SIMULATED HOST</span>
+                <p id="guest-host-note">Mark Ready, then wait for the host.</p>
+              </div>
+              <button id="simulate-host-start-button" class="pill-button test-button" type="button" disabled>SIMULATE HOST START</button>
+            </div>
+            <footer class="lobby-footer">
+              <p id="lobby-status" role="status" aria-live="polite"></p>
+              <button id="leave-room-button" class="text-button" type="button">← BACK TO HOME</button>
+            </footer>
+          </section>
+        </div>
+      </section>
+
+      <section id="game-loading-screen" class="screen splash-screen game-loading-screen" aria-labelledby="game-loading-title" hidden>
+        <div class="splash-brand brand-mark" aria-label="GODHA">
+          <span class="brand-rays" aria-hidden="true">✦</span>
+          <span class="brand-word">GODHA</span>
+          <span class="brand-rays" aria-hidden="true">✦</span>
+        </div>
+        <h1 id="game-loading-title" class="visually-hidden">Starting game</h1>
+        <div class="island-scene" aria-hidden="true">
+          <div class="stone-arch"><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="island-tree tree-left"></div>
+          <div class="island-tree tree-right"></div>
+          <div class="island-ground"></div>
+          <div class="island-rock"></div>
+          <div class="waterfall waterfall-left"></div>
+          <div class="waterfall waterfall-right"></div>
+          <img class="running-panda" src="/assets/player-panda.png" alt="" />
+        </div>
+        <div class="game-progress-wrap">
+          <p class="splash-caption">Starting Game...</p>
+          <div class="game-progress-row">
+            <div id="game-progress-track" class="progress-track" role="progressbar" aria-label="Starting game" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <span id="game-progress" class="progress-fill"></span>
+            </div>
+            <span id="game-percent" class="game-percent">0%</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="complete-screen" class="screen complete-screen" aria-labelledby="complete-title" hidden>
+        <div class="complete-card">
+          <div class="brand-mark screen-brand" aria-label="GODHA"><span class="brand-rays" aria-hidden="true">✦</span><span class="brand-word">GODHA</span><span class="brand-rays" aria-hidden="true">✦</span></div>
+          <div class="complete-orb" aria-hidden="true">✓</div>
+          <h1 id="complete-title">Ready for the meadow!</h1>
+          <p>Preview loading is complete. Gameplay is outside this prototype.</p>
+          <button id="return-home-button" class="pill-button start-button" type="button">BACK TO HOME</button>
+        </div>
+      </section>
     </main>
+
+    <dialog id="join-dialog" class="modal-card" aria-labelledby="join-title">
+      <button class="modal-close" type="button" aria-label="Close join room dialog">×</button>
+      <div class="peeking-cat" aria-hidden="true">●</div>
+      <h2 id="join-title">JOIN ROOM</h2>
+      <p class="modal-subtitle">Enter a six-character room code.</p>
+      <form id="join-form" novalidate>
+        <label class="room-code-field" for="join-code-input">
+          <span aria-hidden="true">🎮</span>
+          <input id="join-code-input" name="room-code" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="Enter Room Code" aria-describedby="join-error join-samples" />
+        </label>
+        <p id="join-error" class="field-error" role="alert" hidden></p>
+        <p id="join-samples" class="sample-hint">Try <strong>SUNNY1</strong> for the demo room or <strong>FULL66</strong> for the six-player full room.</p>
+        <div class="modal-actions">
+          <button id="cancel-join-button" class="pill-button cream-button" type="button">CANCEL</button>
+          <button class="pill-button amber-button" type="submit">JOIN</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="settings-dialog" class="modal-card compact-modal" aria-labelledby="settings-title">
+      <button class="modal-close" type="button" aria-label="Close settings dialog">×</button>
+      <h2 id="settings-title">SETTINGS</h2>
+      <p class="modal-subtitle">A few sample preferences for this preview.</p>
+      <label class="setting-row"><span><strong>Button sounds</strong><small>UI sound effects</small></span><input type="checkbox" checked /></label>
+      <label class="setting-row"><span><strong>Motion</strong><small>Short fades and button feedback</small></span><input type="checkbox" checked /></label>
+      <div class="modal-actions single-action"><button class="pill-button amber-button modal-done-button" type="button">DONE</button></div>
+    </dialog>
+
+    <dialog id="maps-dialog" class="modal-card compact-modal maps-modal" aria-labelledby="maps-title">
+      <button class="modal-close" type="button" aria-label="Close maps dialog">×</button>
+      <h2 id="maps-title">MAPS</h2>
+      <p class="modal-subtitle">Choose the room map.</p>
+      <button id="sunny-meadow-option" class="map-option is-chosen" type="button" aria-pressed="true">
+        <span class="meadow-thumb large-meadow" aria-hidden="true"><span class="thumb-sun"></span><span class="thumb-cloud cloud-left"></span><span class="thumb-cloud cloud-right"></span><span class="thumb-hill thumb-hill-one"></span><span class="thumb-hill thumb-hill-two"></span><span class="thumb-path"></span></span>
+        <span class="map-option-copy"><strong>Sunny Meadow</strong><small>Soft hills and sunny skies</small></span>
+        <span class="map-check" aria-hidden="true">✓</span>
+      </button>
+      <div class="modal-actions single-action"><button class="pill-button amber-button modal-done-button" type="button">DONE</button></div>
+    </dialog>
+
+    <noscript><p class="noscript-note">This room preview needs JavaScript enabled.</p></noscript>
     <script type="module" src="/js/app.js"></script>
   </body>
 </html>

@@ -1,39 +1,31 @@
-# GODHA Sprint 1 · Test report
+# GODHA Sprint 2 prototype checks
 
-**Status: prototype smoke-tested; full sprint sign-off is still pending.** The checks below distinguish observed results from tests that still need a tester or additional network conditions.
+## Automated
 
-## Completed checks
+Run `npm test`. The suite includes the Sprint 1 network/signaling tests plus Sprint 2 room-service tests covering:
 
-| Check | Result and evidence |
-|---|---|
-| Automated suite | **Pass:** `npm test` builds both TypeScript targets and passes 3 test groups: UI-independent module import, room lifecycle/admission, and signaling relay restrictions. |
-| Fresh install and startup | **Pass:** a fresh clone of commit `ddc0370` ran `npm ci`, `npm start` and all three test groups, serving the page and `/health` over HTTP. Environment: Node 24.22.1. This was a fresh checkout on the same machine, not a separate clean operating-system installation. |
-| Four browser clients | **Pass:** one host and three guests in separate tabs on one browser instance showed the same four connected player names and four distinct starting positions. |
-| Position sync | **Pass for sequential movement:** a brief arrow tap moved the host from x 25%, y 30% to x 27%, y 30%; all three guests displayed the new position. Clicking the canvas center moved the host to x 50%, y 50%, and all guests reflected it. Each guest then moved in turn, and all four clients showed the same updated positions. This did not measure latency or test simultaneous movement. |
-| Direct peer connections | **Pass in the same-machine test:** the sample's `RTCPeerConnection.getStats()` diagnostics across the host and three guests covered all six mesh pairs; every data channel was open and every selected candidate pair was `host ↔ host`. This does not prove connectivity across restrictive NATs. |
-| Join errors | **Pass on the preceding build:** the browser UI showed distinct messages for an invalid code, a full room and a locked room. The final automated checks cover these and a closed room. |
-| Leave, disconnect and rejoin | **Pass on the preceding build:** normal leave removed the player on other clients; a tab close showed a disconnect and removed the player; rejoining filled the slot without a stale duplicate and received the host's current position. The final automated suite covers the same server membership lifecycle. |
-| Module independence | **Pass:** the module imported without a DOM in the automated test. The separate `/module-smoke.html` browser fixture created a room without loading the sample UI. |
+- the `SUNNY1` joinable fixture and `FULL66` six-player full fixture;
+- generated six-character room codes and required player names;
+- malformed, unknown, and full room-code behavior;
+- a six-player maximum and two seats per team;
+- Ready state updates and Start conditions (host + at least one guest, all guests Ready, teams need not be full).
 
-An independent tester confirmed the revised brief arrow press changed x from 25% to 27%. The tester's attempted canvas-center click did not visibly change the position, unlike the separate browser test above; the reason is unconfirmed and deserves retesting. The independent browser controls did not expose separate clients, so independent confirmation of peer connectivity and cross-client sync remains open.
+## Browser flow checklist
 
-## TesterOne · connection-flow cases to repeat
+Use a sandbox or other approved test browser; do not use the owner's Mac for project testing.
 
-1. Create a room, copy its code and join from three separate clients. Check all names and statuses converge.
-2. Submit an invalid code, try a fifth client, lock joins, and try a code after the host leaves. Check the distinct messages and that rejected clients do not enter the roster.
-3. Have a guest leave normally; then abruptly close another guest. Check status messages, roster removal and capacity recovery on the remaining clients.
-4. Rejoin while the room is open. Check the old entry does not remain and the rejoining player receives current positions.
-5. Move existing players before a late join; check that the newcomer sees their current positions.
-6. Have the host leave; check the other clients are notified that the room is closed and the old code cannot be joined.
+1. Startup loading transitions to Player Name; a blank name shows an inline error.
+2. A valid name opens Home and is shown in the profile chip.
+3. Settings opens and closes, including with Escape.
+4. Create Room shows a six-character code, `SIMULATED`, the host, four teams, two seats per team, and **Sunny Meadow**. Copy room code reports **Copied!**.
+5. Start stays disabled with the host alone. Add one simulated guest, then mark that guest Ready. Start becomes available even though teams are not full. Add another guest left Not Ready; Start disables until every guest is Ready.
+6. Joining with a blank value, malformed value, unknown six-character value, or `FULL66` shows an inline message. `SUNNY1` opens the guest lobby.
+7. Guest Ready toggles between Ready and Not Ready. The simulated-host action stays unavailable until the host plus at least one guest are present and all guests are Ready; once available it leads to game-start loading.
+8. Maps opens and closes, and contains only the `Sunny Meadow` option.
+9. Cancel, the close button, and Escape dismiss the Join dialog. All controls can be reached and activated by keyboard.
+10. Game-start loading advances through changing percentages to 100% and stops at the labeled placeholder.
+11. Inspect at 1920×1080, 1366×768, and phone landscape. Confirm the provided art keeps its proportions and transparency, and text or controls do not overlap or clip.
 
-## TesterTwo · sync and network conditions still to test
+## Verification record
 
-- Move all four players simultaneously and verify every other client sees the correct positions; sequential movement has been checked above.
-- Measure update delay with controlled added latency and simulated packet loss; record the tool, conditions, measurements and recovery behavior.
-- Test a background tab for an extended interval, then foreground it and check convergence and disconnect behavior.
-- Repeat from different devices and networks; inspect peer diagnostics or browser WebRTC statistics and record selected candidate types and data-channel state.
-- Record failures and reproduction steps. There is no agreed numeric latency target in this sprint.
-
-## Known test boundaries
-
-No TURN server is configured. Restrictive networks can prevent direct connections; a successful same-machine `host ↔ host` result does not establish cross-network availability. Automatic reconnection, host migration and production deployment are outside this sprint.
+The final build and automated suite passed in the cloud sandbox: `npm test` reports 10/10 tests. A Chromium/Playwright smoke flow exercised name validation, Settings and Join dialog dismissal, missing/malformed/unknown/full/valid room codes, `SUNNY1`, clipboard feedback, the one-option Sunny Meadow dialog, guest Ready toggling, host Start gating with solo/not-ready/all-ready guests, and the game-loading placeholder; no uncaught page errors occurred. Visual renders were inspected at 1920×1080, 1366×768, and 844×390, with no horizontal overflow. The lobby fits the desktop and laptop document heights; in phone landscape its panel scrolls internally (551px content within a 372px panel), keeping all four teams accessible. No project testing was performed on the owner’s Mac.

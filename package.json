@@ -1,9 +1,9 @@
 {
-  "name": "godha-sprint-1-prototype",
+  "name": "godha-sprint-2-prototype",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Framework-agnostic WebRTC room and 2D state-sync foundation for GODHA Sprint 1.",
+  "description": "Responsive simulated pre-game room flow prototype for GODHA Sprint 2.",
   "engines": {
     "node": ">=20"
   },

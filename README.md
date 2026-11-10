@@ -1,6 +1,6 @@
-# GODHA · Sprint 1 connection and sync prototype
+# GODHA · Sprint 2 room-flow prototype
 
-A browser-based foundation for room creation, code-based joining and small-room state sync. The network module is TypeScript and framework-agnostic; the sample UI is plain HTML, CSS and TypeScript compiled to native browser modules.
+A browser prototype for GODHA's cheerful pre-game flow: startup loading, player name, home, room creation and joining, host/guest lobbies, settings, maps, and game-start loading. It is built with plain HTML, CSS, and TypeScript.
 
 ## Run it
 
@@ -13,74 +13,34 @@ npm ci
 npm start
 ```
 
-`npm start` builds the TypeScript and starts the HTTP/signaling server. Open **http://localhost:3000** in up to four separate browser tabs. One tab creates a room; the other tabs join using its six-character code. Each client has its own local dot. Use the arrow keys to move it or click/tap a position on the canvas. The host can lock and unlock new joins.
+Open **http://localhost:3000**. The startup screen advances to the player-name form. The room code `SUNNY1` opens a joinable demo room; `FULL66` is the six-player full-room fixture. Any other valid-looking code that is not in the fixture set is reported as unavailable. A newly created room receives a generated six-character code.
 
-For a clean-machine check, use the commands above in a fresh checkout, then verify the page loads and a room can be created. Run all automated checks with `npm test`.
-
-The server listens on port 3000 by default; set `PORT` to use a different port. Use the same browser origin for all local clients. Hosting over HTTPS with a corresponding secure WebSocket (`wss:`) is needed for deployments outside localhost; production hosting is out of scope.
-
-## What is in the prototype
-
-- `src/network.ts` — framework-independent `GodhaNetwork` API and WebRTC full-mesh connections.
-- `src/server.ts` — room registration, admission, room controls and SDP/ICE setup relay; it does not relay player positions.
-- `src/app.ts` and `public/` — minimal sample controls, player status list and shared 2D dot canvas.
-- `public/module-smoke.html` — standalone browser fixture that imports the network module without the sample UI.
-- `tests/` — automated module and signaling integration checks. See `TESTING.md` for results and remaining coverage.
-
-The room allows at most four players. Each client creates a direct `RTCPeerConnection` and ordered `RTCDataChannel` to every other player. One side per pair is selected deterministically by player ID to avoid duplicate offers. Public Google STUN servers are configured. TURN is intentionally not configured; its future insertion point is marked next to the STUN configuration in `src/network.ts`.
-
-Room registration and deregistration, join admission, SDP offers/answers and ICE candidates use the WebSocket signaling server. Position updates, direct `hello`/leave messages and heartbeats use data channels after peer setup. The server's departure and room-lock notifications are room-management messages, not game or position traffic.
-
-## Network module API
-
-Import `GodhaNetwork` from `src/network.ts` (or `public/js/network.js` after building):
-
-```ts
-const network = new GodhaNetwork();
-const unsubscribe = network.on((event) => {
-  if (event.type === "players") renderPlayers(event.players);
-  if (event.type === "status") showStatus(event.message);
-  if (event.type === "error") showError(event.message);
-  if (event.type === "room") configureRoom(event.roomCode, event.isHost);
-});
-
-const code = await network.createRoom();
-// or: await network.joinRoom(code)
-network.updatePosition(0.4, 0.6); // normalized x/y values in [0, 1]
-const players = network.getPlayers();
-const peerStats = await network.getPeerDiagnostics(); // WebRTC state and candidate-pair stats
-await network.setAcceptingJoins(false); // host only
-await network.leaveRoom();
-unsubscribe();
-```
-
-The API contains no UI, renderer or game-physics code. Player positions are normalized 2D coordinates. `Player.status` is `connecting`, `connected` or `disconnected`; departure produces a status event and removes the player from the active list. Events include current player snapshots so consumers do not need to manage network internals.
-
-## Acceptance checks and test report
-
-Automated tests cover room code creation, joining, invalid codes, four-player capacity, departure, disconnect and rejoin, locked-room rejection, host-close/unavailable-room behavior, and targeted signaling relay. The suite also checks that a game-state message is not accepted by the signaling server. Run them with:
+Run the automated checks with:
 
 ```bash
 npm test
 ```
 
-The following repeatable checks require browser clients; actual results and remaining gaps are recorded in `TESTING.md`:
+## How the room simulation works
 
-1. Create a room in one tab; join from three other tabs. Confirm all four lists converge to the same player names and connection statuses.
-2. Move each dot with arrow keys and canvas clicks. Confirm every other client shows the positions updating while moving.
-3. Try an invalid code, a fifth client, and a join while the host has locked the room. Confirm each gets the corresponding clear message.
-4. Make a late join after existing players have moved. Confirm the newcomer receives their current positions.
-5. Leave normally, then close a client tab to simulate a dropped connection. Confirm other clients show a departure status and remove the player from the active list; rejoin without a stale duplicate.
-6. Click **Peer diagnostics** or use browser WebRTC diagnostics to confirm each pair has an open data channel and a selected non-relay candidate pair. The signaling server rejects position payloads; inspect its messages to confirm only setup and room-management traffic is sent through `/signal`.
-7. Test three or more clients under added latency, simulated packet loss and background-tab throttling; record actual delay, recovery and any divergence. The prototype does not promise a numeric latency threshold.
-8. Open `http://localhost:3000/module-smoke.html` to check the network module in a minimal page that does not load the sample UI. It creates a temporary room and closes it when the tab closes.
+`src/room-service.ts` defines the `RoomService` interface and the local `SimulatedRoomService` adapter. The UI in `src/app.ts` imports only that service. It does **not** import `src/network.ts`, open a signaling WebSocket, construct an `RTCPeerConnection`, or make a real network room.
 
-## Known limitations
+The service provides the seam for a later network-backed adapter. It owns room creation/joining, team assignment, guest readiness, and fixture data. Rooms have a six-player cap across four teams, with at most two players per team. The host plus at least one guest is required to start, and every guest must be Ready; all four teams do not need to be filled. New players are assigned to the first team with an open seat. The host lobby includes explicit simulated guest controls so the readiness and start states can be exercised in one browser. In the guest lobby, **SIMULATE HOST START** represents the host's action in this single-client preview; a real guest cannot start a match.
 
-- No TURN relay is included, so restrictive NATs, firewalls or network policies can prevent direct peer connection.
-- Full mesh is suitable for the four-player sprint cap; connection count and traffic grow with room size.
-- If the host leaves, the room closes; host migration and persistence are out of scope. The closed code is reported unavailable for 15 minutes.
-- Reconnection is manual: rejoin with the code while the host room remains open and has capacity. There is no automatic state rollback or conflict resolution.
-- State sync is best-effort latest-position replication over ordered reliable data channels. There is no interpolation, authoritative simulation, game rules, physics, accounts or matchmaking.
-- Browser background throttling and network changes can affect update timing and disconnect detection. Measure these in the browser test pass.
-- Run instructions target localhost. A public HTTPS/WSS deployment and production hardening are out of scope.
+The sample codes are fixed, local fixtures: `SUNNY1` (one simulated host; joinable) and `FULL66` (six players; full). The Maps dialog intentionally contains exactly one option: **Sunny Meadow**. Room state and the player name are held in memory only and reset on reload. Game-start loading ends at a labeled placeholder; gameplay and results are out of scope.
+
+The existing Sprint 1 WebRTC module and signaling server remain in the repository but are not used by the Sprint 2 UI. Keep the Sprint 1 and Sprint 2 contracts separate until a later sprint explicitly connects them.
+
+## Asset and temporary-art handoff
+
+The three supplied transparent PNG assets are in `public/assets/` and are rendered with `object-fit: contain` so their proportions are preserved:
+
+- `player-panda.png` — supplied player-name mascot; reused as a temporary mascot in the loading scenes.
+- `home-cat-corgi.png` — supplied home-screen sofa artwork.
+- `cabinet.png` — supplied host/guest lobby cabinet artwork.
+
+Temporary and replaceable elements: the GODHA wordmark is editable HTML text; the start-up and game-start landscapes (including hill, island, arch, trees, and waterfalls) are CSS/HTML; the room-map thumbnail is a CSS meadow; player avatars are initials; and the join-dialog peeking cat is a small CSS placeholder. The initial-loading trio, running character poses, and original map thumbnail were not supplied as standalone art. There is no extracted screenshot used as a UI background, no sample player/room values from the references, and no Party Animals footer or copyright text. The font stack uses Fredoka (SIL Open Font License) from Google Fonts, with system rounded sans-serif fallbacks when it is unavailable.
+
+## Run and verify notes
+
+The prototype is designed responsively for desktop, smaller displays, and phone landscape. Check `TESTING.md` for the acceptance checklist and the sandbox-only verification record. Visual browser checks at the listed viewports should be recorded when performed; do not infer them from compilation or unit-test results.

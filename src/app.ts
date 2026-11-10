@@ -1,272 +1,463 @@
-import { GodhaNetwork, type Player, type PlayerStatus } from "./network.js";
+import {
+  canStartRoom,
+  MAP_NAME,
+  RoomServiceError,
+  SimulatedRoomService,
+  TEAMS,
+  type Room,
+  type RoomPlayer,
+  type TeamId,
+} from "./room-service.js";
 
-const network = new GodhaNetwork();
-const createButton = document.querySelector<HTMLButtonElement>("#create-button")!;
-const joinButton = document.querySelector<HTMLButtonElement>("#join-button")!;
-const joinInput = document.querySelector<HTMLInputElement>("#room-code-input")!;
-const roomDetails = document.querySelector<HTMLElement>("#room-details")!;
-const roomCodeDisplay = document.querySelector<HTMLElement>("#room-code-display")!;
-const copyButton = document.querySelector<HTMLButtonElement>("#copy-button")!;
-const lockButton = document.querySelector<HTMLButtonElement>("#lock-button")!;
-const diagnosticsButton = document.querySelector<HTMLButtonElement>("#diagnostics-button")!;
-const diagnostics = document.querySelector<HTMLElement>("#diagnostics")!;
-const leaveButton = document.querySelector<HTMLButtonElement>("#leave-button")!;
-const statusBox = document.querySelector<HTMLElement>("#status")!;
-const playerList = document.querySelector<HTMLUListElement>("#player-list")!;
-const playerCount = document.querySelector<HTMLElement>("#player-count")!;
-const canvas = document.querySelector<HTMLCanvasElement>("#playfield")!;
-const context = canvas.getContext("2d")!;
+const service = new SimulatedRoomService();
+type ScreenId = "boot-screen" | "name-screen" | "home-screen" | "lobby-screen" | "game-loading-screen" | "complete-screen";
+type LobbyRole = "host" | "guest";
 
-const pressedKeys = new Set<string>();
-let players: Player[] = [];
-let statusResetTimer = 0;
+const screens: ScreenId[] = [
+  "boot-screen",
+  "name-screen",
+  "home-screen",
+  "lobby-screen",
+  "game-loading-screen",
+  "complete-screen",
+];
+const $ = <T extends HTMLElement>(selector: string): T => {
+  const element = document.querySelector<T>(selector);
+  if (!element) throw new Error(`Missing required GODHA UI element: ${selector}`);
+  return element;
+};
 
-function showStatus(message: string, isError = false): void {
-  statusBox.textContent = message;
-  statusBox.classList.toggle("error", isError);
-  if (statusResetTimer) window.clearTimeout(statusResetTimer);
-  if (isError) {
-    statusResetTimer = window.setTimeout(() => statusBox.classList.remove("error"), 6000);
+const focusTargets: Record<ScreenId, string> = {
+  "boot-screen": "boot-title",
+  "name-screen": "name-input",
+  "home-screen": "create-room-button",
+  "lobby-screen": "copy-code-button",
+  "game-loading-screen": "game-loading-title",
+  "complete-screen": "return-home-button",
+};
+
+const nameForm = $("#name-form");
+const nameInput = $("#name-input") as HTMLInputElement;
+const nameError = $("#name-error");
+const profileName = $("#profile-name");
+const profileAvatar = $("#profile-avatar");
+const joinDialog = $("#join-dialog") as HTMLDialogElement;
+const joinForm = $("#join-form");
+const joinCodeInput = $("#join-code-input") as HTMLInputElement;
+const joinError = $("#join-error");
+const settingsDialog = $("#settings-dialog") as HTMLDialogElement;
+const mapsDialog = $("#maps-dialog") as HTMLDialogElement;
+const teamGrid = $("#team-grid");
+const roomSummary = $("#room-summary");
+const roomCodeValue = $("#room-code-value");
+const mapNameElement = $("#map-name");
+const lobbyStatus = $("#lobby-status");
+const hostStartButton = $("#host-start-button") as HTMLButtonElement;
+const guestReadyButton = $("#guest-ready-button") as HTMLButtonElement;
+const hostDemoTools = $("#host-demo-tools");
+const guestDemoTools = $("#guest-demo-tools");
+const addGuestButton = $("#add-guest-button") as HTMLButtonElement;
+const simulateHostStartButton = $("#simulate-host-start-button") as HTMLButtonElement;
+const guestHostNote = $("#guest-host-note");
+const gameProgress = $("#game-progress");
+const gameProgressTrack = $("#game-progress-track");
+const gamePercent = $("#game-percent");
+
+let currentScreen: ScreenId = "boot-screen";
+let playerName = "";
+let activeRoom: Room | null = null;
+let currentRole: LobbyRole | null = null;
+let localPlayerId = "";
+let copyFeedbackTimer = 0;
+let startTransitionTimer = 0;
+
+function showScreen(next: ScreenId, focus = true): void {
+  currentScreen = next;
+  for (const id of screens) {
+    const screen = document.getElementById(id);
+    if (screen) screen.hidden = id !== next;
+  }
+  if (focus) {
+    window.requestAnimationFrame(() => {
+      document.getElementById(focusTargets[next])?.focus({ preventScroll: true });
+    });
   }
 }
 
-function refreshRoomControls(): void {
-  const inRoom = network.getRoomCode() !== null;
-  roomDetails.hidden = !inRoom;
-  createButton.disabled = inRoom;
-  joinButton.disabled = inRoom;
-  joinInput.disabled = inRoom;
-  if (inRoom) {
-    roomCodeDisplay.textContent = network.getRoomCode()!;
-    lockButton.hidden = !network.isHost();
-    lockButton.textContent = network.isAcceptingJoins() ? "Lock joins" : "Unlock joins";
+function showInlineError(target: HTMLElement, input: HTMLInputElement, message: string): void {
+  target.textContent = message;
+  target.hidden = false;
+  input.setAttribute("aria-invalid", "true");
+}
+
+function clearInlineError(target: HTMLElement, input: HTMLInputElement): void {
+  target.textContent = "";
+  target.hidden = true;
+  input.removeAttribute("aria-invalid");
+}
+
+function updateProfile(): void {
+  profileName.textContent = playerName;
+  profileAvatar.textContent = playerName.trim().slice(0, 1).toUpperCase() || "?";
+  profileAvatar.setAttribute("aria-label", `${playerName}'s avatar placeholder`);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Something went wrong. Please try again.";
+}
+
+function openDialog(dialog: HTMLDialogElement): void {
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeDialog(dialog: HTMLDialogElement): void {
+  if (dialog.open) dialog.close();
+}
+
+function findLocalPlayer(room: Room): RoomPlayer | undefined {
+  return room.players.find((player) => player.id === localPlayerId);
+}
+
+function getTeamPlayers(room: Room, teamId: TeamId): RoomPlayer[] {
+  return room.players.filter((player) => player.team === teamId);
+}
+
+function makeAvatar(player: RoomPlayer, teamColor: string): HTMLSpanElement {
+  const avatar = document.createElement("span");
+  avatar.className = "seat-avatar";
+  avatar.textContent = player.name.trim().slice(0, 1).toUpperCase() || "?";
+  avatar.style.setProperty("--team-color", teamColor);
+  avatar.setAttribute("aria-hidden", "true");
+  return avatar;
+}
+
+function makeReadinessControl(player: RoomPlayer): HTMLElement {
+  if (currentRole === "host" && !player.isHost) {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = `ready-badge ${player.ready ? "is-ready" : "is-not-ready"}`;
+    toggle.textContent = player.ready ? "✓ READY" : "NOT READY";
+    toggle.setAttribute("aria-label", `${player.ready ? "Mark" : "Mark"} ${player.name} ${player.ready ? "not ready" : "ready"}`);
+    toggle.addEventListener("click", () => {
+      if (!activeRoom) return;
+      activeRoom = service.setReady(activeRoom.code, player.id, !player.ready);
+      renderLobby();
+    });
+    return toggle;
+  }
+
+  const badge = document.createElement("span");
+  if (player.isHost) {
+    badge.className = "role-badge host-badge";
+    badge.textContent = currentRole === "host" && player.isCurrentPlayer ? "♛ HOST · YOU" : "♛ HOST";
   } else {
-    roomCodeDisplay.textContent = "------";
-    lockButton.hidden = true;
-    diagnostics.hidden = true;
+    badge.className = `ready-badge ${player.ready ? "is-ready" : "is-not-ready"}`;
+    badge.textContent = player.ready ? "✓ READY" : "NOT READY";
+  }
+  return badge;
+}
+
+function makeSeat(player: RoomPlayer | undefined, teamColor: string): HTMLElement {
+  const seat = document.createElement("div");
+  seat.className = player ? "player-seat" : "player-seat empty-seat";
+  if (!player) {
+    const emptyMark = document.createElement("span");
+    emptyMark.className = "empty-seat-mark";
+    emptyMark.textContent = "+";
+    const emptyLabel = document.createElement("span");
+    emptyLabel.textContent = "Open seat";
+    seat.append(emptyMark, emptyLabel);
+    return seat;
+  }
+
+  const avatar = makeAvatar(player, teamColor);
+  const copy = document.createElement("span");
+  copy.className = "seat-copy";
+  const name = document.createElement("strong");
+  name.className = "seat-name";
+  name.textContent = player.name;
+  const meta = document.createElement("small");
+  meta.className = "seat-meta";
+  meta.textContent = player.isHost ? "ROOM HOST" : player.isCurrentPlayer ? "YOU · GUEST" : "GUEST";
+  copy.append(name, meta);
+  seat.append(avatar, copy, makeReadinessControl(player));
+  if (player.isCurrentPlayer) seat.classList.add("is-current-player");
+  return seat;
+}
+
+function renderTeamGrid(room: Room): void {
+  teamGrid.replaceChildren();
+  for (const team of TEAMS) {
+    const players = getTeamPlayers(room, team.id);
+    const card = document.createElement("section");
+    card.className = `team-card team-${team.id}`;
+    card.style.setProperty("--team-color", team.color);
+    card.setAttribute("aria-label", `${team.label} team, ${players.length} of 2 players`);
+
+    const header = document.createElement("header");
+    header.className = "team-header";
+    const label = document.createElement("h2");
+    label.textContent = team.label.toUpperCase();
+    const count = document.createElement("span");
+    count.className = "team-count";
+    count.textContent = `${players.length}/2`;
+    header.append(label, count);
+
+    const seats = document.createElement("div");
+    seats.className = "team-seats";
+    seats.append(makeSeat(players[0], team.color), makeSeat(players[1], team.color));
+    card.append(header, seats);
+    teamGrid.append(card);
   }
 }
 
-function statusLabel(status: PlayerStatus): string {
-  switch (status) {
-    case "connected": return "Connected";
-    case "connecting": return "Connecting";
-    case "disconnected": return "Disconnected";
+function describeLobby(room: Room): string {
+  const guests = room.players.filter((player) => !player.isHost);
+  if (currentRole === "host") {
+    if (guests.length === 0) return "Waiting for a guest to join. Start needs the host plus at least one guest.";
+    if (guests.some((guest) => !guest.ready)) return "Waiting for every guest to be Ready. Full teams are not required.";
+    return "All guests are Ready. You can start the game preview.";
+  }
+  const localPlayer = findLocalPlayer(room);
+  if (!localPlayer?.ready) return "You are not Ready yet. Toggle Ready when you are set.";
+  if (guests.some((guest) => !guest.ready)) return "You are Ready. Waiting for the other guests and host.";
+  return "Everyone is Ready. Waiting for the host to start.";
+}
+
+function renderLobby(): void {
+  if (!activeRoom || !currentRole) return;
+  roomCodeValue.textContent = activeRoom.code;
+  mapNameElement.textContent = MAP_NAME;
+  roomSummary.textContent = `${activeRoom.players.length} / 6 PLAYERS  ·  FOUR TEAMS, TWO SEATS EACH`;
+  renderTeamGrid(activeRoom);
+  lobbyStatus.textContent = describeLobby(activeRoom);
+
+  const hostView = currentRole === "host";
+  hostStartButton.hidden = !hostView;
+  hostStartButton.disabled = !canStartRoom(activeRoom);
+  guestReadyButton.hidden = hostView;
+  hostDemoTools.hidden = !hostView;
+  guestDemoTools.hidden = hostView;
+  $("#open-maps-button").hidden = !hostView;
+  addGuestButton.disabled = activeRoom.players.length >= 6;
+  addGuestButton.textContent = activeRoom.players.length >= 6 ? "ROOM FULL · 6/6" : "＋ ADD SIMULATED GUEST";
+
+  if (!hostView) {
+    const localPlayer = findLocalPlayer(activeRoom);
+    const isReady = Boolean(localPlayer?.ready);
+    guestReadyButton.textContent = isReady ? "✓ READY · ON" : "✓ READY";
+    guestReadyButton.setAttribute("aria-pressed", String(isReady));
+    guestReadyButton.classList.toggle("is-toggled", isReady);
+    simulateHostStartButton.disabled = !canStartRoom(activeRoom);
+    guestHostNote.textContent = canStartRoom(activeRoom)
+      ? "Everyone is Ready. Use this demo control to represent the host starting."
+      : "Mark Ready and wait until every guest is Ready.";
+    simulateHostStartButton.textContent = canStartRoom(activeRoom) ? "SIMULATE HOST START" : "WAITING FOR READY PLAYERS";
   }
 }
 
-function colorFor(id: string): string {
-  let value = 0;
-  for (let index = 0; index < id.length; index += 1) value = (value * 31 + id.charCodeAt(index)) >>> 0;
-  return `hsl(${value % 360} 76% 65%)`;
+function enterLobby(room: Room, role: LobbyRole): void {
+  activeRoom = room;
+  currentRole = role;
+  const localPlayer = room.players.find((player) => player.isCurrentPlayer);
+  if (!localPlayer) throw new Error("The simulated room did not return the local player.");
+  localPlayerId = localPlayer.id;
+  closeDialog(joinDialog);
+  renderLobby();
+  showScreen("lobby-screen");
 }
 
-function renderPlayers(): void {
-  playerCount.textContent = `${players.length} / 4`;
-  playerList.replaceChildren();
-  if (players.length === 0) {
-    const empty = document.createElement("li");
-    empty.className = "empty";
-    empty.textContent = "Create or join a room to see players.";
-    playerList.append(empty);
-  } else {
-    for (const player of players) {
-      const item = document.createElement("li");
-      item.className = "player-item";
-      const color = document.createElement("span");
-      color.className = "player-color";
-      color.style.color = colorFor(player.id);
-      color.style.backgroundColor = colorFor(player.id);
-      const copy = document.createElement("div");
-      copy.className = "player-copy";
-      const name = document.createElement("div");
-      name.className = "player-name";
-      name.textContent = player.name;
-      const state = document.createElement("div");
-      state.className = "player-state";
-      state.textContent = `${statusLabel(player.status)} · x ${Math.round(player.x * 100)}% · y ${Math.round(player.y * 100)}%`;
-      copy.append(name, state);
-      item.append(color, copy);
-      if (player.isLocal) {
-        const tag = document.createElement("span");
-        tag.className = "local-tag";
-        tag.textContent = "YOU";
-        item.append(tag);
-      }
-      playerList.append(item);
+function leaveLobby(): void {
+  if (activeRoom) service.leaveRoom(activeRoom.code, localPlayerId);
+  activeRoom = null;
+  currentRole = null;
+  localPlayerId = "";
+  showScreen("home-screen");
+}
+
+function startGameLoading(): void {
+  if (startTransitionTimer) window.clearTimeout(startTransitionTimer);
+  showScreen("game-loading-screen");
+  const duration = 4200;
+  const startedAt = performance.now();
+  const update = (now: number): void => {
+    const progress = Math.min(100, Math.round(((now - startedAt) / duration) * 100));
+    gameProgress.style.width = `${progress}%`;
+    gameProgressTrack.setAttribute("aria-valuenow", String(progress));
+    gamePercent.textContent = `${progress}%`;
+    if (progress < 100) {
+      window.requestAnimationFrame(update);
+    } else {
+      startTransitionTimer = window.setTimeout(() => showScreen("complete-screen"), 450);
     }
-  }
-  refreshRoomControls();
-  drawPlayers();
+  };
+  gameProgress.style.width = "0%";
+  gameProgressTrack.setAttribute("aria-valuenow", "0");
+  gamePercent.textContent = "0%";
+  window.requestAnimationFrame(update);
 }
 
-function drawPlayers(): void {
-  const width = canvas.width;
-  const height = canvas.height;
-  context.clearRect(0, 0, width, height);
-  for (const player of players) {
-    const x = player.x * width;
-    const y = player.y * height;
-    const color = colorFor(player.id);
-    context.globalAlpha = player.status === "disconnected" ? 0.42 : 1;
-    context.beginPath();
-    context.arc(x, y, player.isLocal ? 12 : 11, 0, Math.PI * 2);
-    context.fillStyle = color;
-    context.shadowColor = color;
-    context.shadowBlur = 18;
-    context.fill();
-    context.shadowBlur = 0;
-    context.fillStyle = "#0d171d";
-    context.font = "700 9px Manrope, sans-serif";
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText(String(players.indexOf(player) + 1), x, y);
-    context.globalAlpha = 1;
-    context.fillStyle = "#edf4f1";
-    context.font = "600 12px Manrope, sans-serif";
-    context.textAlign = "left";
-    context.textBaseline = "top";
-    context.fillText(player.isLocal ? `${player.name} (you)` : player.name, x + 16, y - 8);
-  }
+function fallbackCopy(text: string): boolean {
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.className = "visually-hidden";
+  document.body.append(area);
+  area.select();
+  const copied = document.execCommand("copy");
+  area.remove();
+  return copied;
 }
 
-network.on((event) => {
-  if (event.type === "players") {
-    players = event.players;
-    renderPlayers();
-  } else if (event.type === "status") {
-    showStatus(event.message);
-    refreshRoomControls();
-  } else if (event.type === "error") {
-    showStatus(event.message, true);
-    refreshRoomControls();
-  } else if (event.type === "room") {
-    roomCodeDisplay.textContent = event.roomCode;
-    roomDetails.hidden = false;
-    refreshRoomControls();
-  }
-});
-
-createButton.addEventListener("click", async () => {
-  createButton.disabled = true;
-  showStatus("Creating a room…");
+async function copyRoomCode(): Promise<void> {
+  if (!activeRoom) return;
+  const code = activeRoom.code;
+  let copied = false;
   try {
-    await network.createRoom();
-  } catch (error) {
-    showStatus(error instanceof Error ? error.message : String(error), true);
-    refreshRoomControls();
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(code);
+      copied = true;
+    }
+  } catch {
+    copied = fallbackCopy(code);
   }
-});
+  if (!copied) copied = fallbackCopy(code);
+  if (copied) {
+    const copyButton = $("#copy-code-button") as HTMLButtonElement;
+    copyButton.classList.add("copied");
+    copyButton.setAttribute("aria-label", "Copied!");
+    copyButton.querySelector(".copy-icon")!.textContent = "✓";
+    lobbyStatus.textContent = "Copied!";
+    if (copyFeedbackTimer) window.clearTimeout(copyFeedbackTimer);
+    copyFeedbackTimer = window.setTimeout(() => {
+      copyButton.classList.remove("copied");
+      copyButton.setAttribute("aria-label", "Copy room code");
+      copyButton.querySelector(".copy-icon")!.textContent = "▢";
+    }, 1600);
+  } else {
+    lobbyStatus.textContent = `Copy unavailable. Room code: ${code}`;
+  }
+}
 
-joinButton.addEventListener("click", async () => {
-  const code = joinInput.value.trim().toUpperCase();
-  if (!code) {
-    showStatus("Enter a room code first.", true);
-    joinInput.focus();
+nameForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const value = nameInput.value.trim();
+  if (!value) {
+    showInlineError(nameError, nameInput, "Please enter a player name to continue.");
+    nameInput.focus();
     return;
   }
-  joinButton.disabled = true;
-  showStatus("Looking up room and connecting…");
+  playerName = value.slice(0, 24);
+  clearInlineError(nameError, nameInput);
+  updateProfile();
+  showScreen("home-screen");
+});
+
+nameInput.addEventListener("input", () => clearInlineError(nameError, nameInput));
+
+$("#create-room-button").addEventListener("click", () => {
   try {
-    await network.joinRoom(code);
+    const room = service.createRoom(playerName);
+    enterLobby(room, "host");
   } catch (error) {
-    showStatus(error instanceof Error ? error.message : String(error), true);
-    refreshRoomControls();
+    lobbyStatus.textContent = errorMessage(error);
   }
 });
 
-joinInput.addEventListener("input", () => {
-  joinInput.value = joinInput.value.toUpperCase().replace(/\s/g, "");
-});
-joinInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") joinButton.click();
-});
-
-copyButton.addEventListener("click", async () => {
-  const code = network.getRoomCode();
-  if (!code) return;
-  try {
-    await navigator.clipboard.writeText(code);
-    showStatus("Room code copied.");
-  } catch {
-    showStatus(`Copy this room code: ${code}`);
-  }
+$("#open-join-button").addEventListener("click", () => {
+  clearInlineError(joinError, joinCodeInput);
+  joinCodeInput.value = "";
+  openDialog(joinDialog);
+  window.setTimeout(() => joinCodeInput.focus(), 0);
 });
 
-lockButton.addEventListener("click", async () => {
-  const nextAccepting = !network.isAcceptingJoins();
-  lockButton.disabled = true;
+$("#open-settings-button").addEventListener("click", () => openDialog(settingsDialog));
+
+joinCodeInput.addEventListener("input", () => {
+  joinCodeInput.value = joinCodeInput.value.toUpperCase().replace(/\s/g, "").slice(0, 6);
+  clearInlineError(joinError, joinCodeInput);
+});
+
+joinForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const code = joinCodeInput.value.trim().toUpperCase();
   try {
-    await network.setAcceptingJoins(nextAccepting);
+    const room = service.joinRoom(playerName, code);
+    enterLobby(room, "guest");
   } catch (error) {
-    showStatus(error instanceof Error ? error.message : String(error), true);
-  } finally {
-    lockButton.disabled = false;
-    refreshRoomControls();
+    const message = error instanceof RoomServiceError ? error.message : errorMessage(error);
+    showInlineError(joinError, joinCodeInput, message);
+    joinCodeInput.focus();
   }
 });
 
-diagnosticsButton.addEventListener("click", async () => {
-  diagnosticsButton.disabled = true;
-  try {
-    const peers = await network.getPeerDiagnostics();
-    diagnostics.textContent = peers.length === 0 ? "No peer connections yet." : peers.map((peer) =>
-      `${peer.name}: ${peer.connectionState}; data channel ${peer.dataChannelState}; candidates ${peer.localCandidateType ?? "unknown"} ↔ ${peer.remoteCandidateType ?? "unknown"}; sent ${peer.bytesSent} B / received ${peer.bytesReceived} B`,
-    ).join("\n");
-    diagnostics.hidden = false;
-  } catch (error) {
-    showStatus(`Could not read WebRTC diagnostics: ${error instanceof Error ? error.message : String(error)}`, true);
-  } finally {
-    diagnosticsButton.disabled = false;
-  }
-});
-
-leaveButton.addEventListener("click", async () => {
-  leaveButton.disabled = true;
-  showStatus("Leaving room…");
-  await network.leaveRoom();
-  joinInput.value = "";
-  showStatus("You left the room.");
-  refreshRoomControls();
-  leaveButton.disabled = false;
-});
-
-canvas.addEventListener("pointerdown", (event) => {
-  const rect = canvas.getBoundingClientRect();
-  network.updatePosition((event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
-});
-
-window.addEventListener("keydown", (event) => {
-  if (["INPUT", "TEXTAREA"].includes((event.target as HTMLElement | null)?.tagName ?? "")) return;
-  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
-    event.preventDefault();
-    if (!pressedKeys.has(event.key)) {
-      const own = players.find((player) => player.isLocal);
-      if (own) {
-        const dx = Number(event.key === "ArrowRight") - Number(event.key === "ArrowLeft");
-        const dy = Number(event.key === "ArrowDown") - Number(event.key === "ArrowUp");
-        network.updatePosition(own.x + dx * 0.02, own.y + dy * 0.02);
-      }
-    }
-    pressedKeys.add(event.key);
-  }
-});
-window.addEventListener("keyup", (event) => pressedKeys.delete(event.key));
-window.addEventListener("blur", () => pressedKeys.clear());
-
-let lastFrame = 0;
-function animate(timestamp: number): void {
-  const elapsed = lastFrame ? Math.min((timestamp - lastFrame) / 1000, 0.05) : 0;
-  lastFrame = timestamp;
-  if (pressedKeys.size > 0) {
-    const own = players.find((player) => player.isLocal);
-    if (own) {
-      const speed = 0.5 * elapsed;
-      const dx = Number(pressedKeys.has("ArrowRight")) - Number(pressedKeys.has("ArrowLeft"));
-      const dy = Number(pressedKeys.has("ArrowDown")) - Number(pressedKeys.has("ArrowUp"));
-      if (dx || dy) network.updatePosition(own.x + dx * speed, own.y + dy * speed);
-    }
-  }
-  requestAnimationFrame(animate);
+$("#cancel-join-button").addEventListener("click", () => closeDialog(joinDialog));
+for (const dialog of [joinDialog, settingsDialog, mapsDialog]) {
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) closeDialog(dialog);
+  });
+  dialog.querySelector(".modal-close")?.addEventListener("click", () => closeDialog(dialog));
 }
-requestAnimationFrame(animate);
+for (const button of document.querySelectorAll<HTMLButtonElement>(".modal-done-button")) {
+  button.addEventListener("click", () => {
+    const dialog = button.closest("dialog");
+    if (dialog) closeDialog(dialog);
+  });
+}
+
+$("#open-maps-button").addEventListener("click", () => openDialog(mapsDialog));
+$("#sunny-meadow-option").addEventListener("click", () => {
+  mapNameElement.textContent = MAP_NAME;
+  closeDialog(mapsDialog);
+});
+
+$("#copy-code-button").addEventListener("click", () => void copyRoomCode());
+
+hostStartButton.addEventListener("click", () => {
+  if (currentRole === "host" && activeRoom && canStartRoom(activeRoom)) startGameLoading();
+});
+
+guestReadyButton.addEventListener("click", () => {
+  if (!activeRoom) return;
+  const localPlayer = findLocalPlayer(activeRoom);
+  if (!localPlayer || localPlayer.isHost) return;
+  activeRoom = service.setReady(activeRoom.code, localPlayer.id, !localPlayer.ready);
+  renderLobby();
+});
+
+addGuestButton.addEventListener("click", () => {
+  if (!activeRoom || currentRole !== "host") return;
+  try {
+    activeRoom = service.addSimulatedGuest(activeRoom.code);
+    renderLobby();
+  } catch (error) {
+    lobbyStatus.textContent = errorMessage(error);
+  }
+});
+
+simulateHostStartButton.addEventListener("click", () => {
+  if (currentRole === "guest" && activeRoom && canStartRoom(activeRoom)) startGameLoading();
+});
+
+$("#leave-room-button").addEventListener("click", leaveLobby);
+$("#return-home-button").addEventListener("click", () => {
+  activeRoom = null;
+  currentRole = null;
+  localPlayerId = "";
+  showScreen("home-screen");
+});
+
+const bootProgress = $("#boot-progress");
+const bootTrack = $("#boot-screen .progress-track");
+let bootValue = 4;
+const bootTimer = window.setInterval(() => {
+  bootValue = Math.min(100, bootValue + 11);
+  bootProgress.style.width = `${bootValue}%`;
+  bootTrack.setAttribute("aria-valuenow", String(bootValue));
+}, 120);
+window.setTimeout(() => {
+  window.clearInterval(bootTimer);
+  bootProgress.style.width = "100%";
+  bootTrack.setAttribute("aria-valuenow", "100");
+  showScreen("name-screen");
+}, 1250);

@@ -3,3 +3,6 @@ dist/
 public/js/*.js
 coverage/
 .DS_Store
+
+# Temporary Sprint 2 reference screenshots used only during implementation
+.scratch/

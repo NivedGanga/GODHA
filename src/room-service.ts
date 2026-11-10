@@ -244,7 +244,7 @@ export class SimulatedRoomService implements RoomService {
 
   private seedFixtures(): void {
     const sunnyRoom: Room = {
-      code: "SUNNY1",
+      code: "AB12CD",
       map: MAP_NAME,
       players: [{
         id: this.makePlayerId(),
@@ -258,7 +258,7 @@ export class SimulatedRoomService implements RoomService {
     this.rooms.set(sunnyRoom.code, { room: sunnyRoom, fixture: true });
 
     const fullRoom: Room = {
-      code: "FULL66",
+      code: "FULL88",
       map: MAP_NAME,
       players: [
         { id: this.makePlayerId(), name: "Milo", team: "red", isHost: true, isCurrentPlayer: false, ready: true },

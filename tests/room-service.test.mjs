@@ -13,13 +13,15 @@ function service() {
   return new SimulatedRoomService();
 }
 
-test("room fixtures include an open demo room and an exactly six-player full room", () => {
+test("room fixtures include the approved open and exactly six-player full rooms", () => {
   const rooms = service();
-  const open = rooms.getFixtureRoom("SUNNY1");
-  const full = rooms.getFixtureRoom("FULL66");
+  const open = rooms.getFixtureRoom("AB12CD");
+  const full = rooms.getFixtureRoom("FULL88");
 
+  assert.equal(open.code, "AB12CD");
   assert.equal(open.players.length, 1);
   assert.equal(open.players[0].isHost, true);
+  assert.equal(full.code, "FULL88");
   assert.equal(full.players.length, 6);
   assert.equal(full.players.filter((player) => player.isHost).length, 1);
   assert.equal(full.map, "Sunny Meadow");
@@ -55,10 +57,10 @@ test("a host needs one guest and every guest ready; full teams are not required"
   assert.ok(room.players.length < MAX_PLAYERS);
 });
 
-test("guests can join SUNNY1 and readiness updates are returned to the room view", () => {
+test("guests can join AB12CD and readiness updates are returned to the room view", () => {
   const rooms = service();
-  let room = rooms.joinRoom("Player", "sunny1");
-  assert.equal(room.code, "SUNNY1");
+  let room = rooms.joinRoom("Player", "ab12cd");
+  assert.equal(room.code, "AB12CD");
   assert.equal(room.players.length, 2);
   assert.equal(room.players[1].isCurrentPlayer, true);
   assert.equal(room.players[1].ready, false);
@@ -75,7 +77,7 @@ test("joining rejects missing, malformed, unknown, and six-player full room code
     ["", "INVALID_CODE"],
     ["BAD", "INVALID_CODE"],
     ["ABC123", "ROOM_NOT_FOUND"],
-    ["FULL66", "ROOM_FULL"],
+    ["FULL88", "ROOM_FULL"],
   ];
   for (const [code, expected] of failures) {
     assert.throws(() => rooms.joinRoom("Player", code), (error) => {

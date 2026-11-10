@@ -13,7 +13,7 @@ npm ci
 npm start
 ```
 
-Open **http://localhost:3000**. The startup screen advances to the player-name form. The room code `SUNNY1` opens a joinable demo room; `FULL66` is the six-player full-room fixture. Any other valid-looking code that is not in the fixture set is reported as unavailable. A newly created room receives a generated six-character code.
+Open **http://localhost:3000**. The startup screen advances to the player-name form. The room code `AB12CD` opens a joinable demo room; `FULL88` is the six-player full-room fixture. Any other valid-looking code that is not in the fixture set is reported as unavailable. A newly created room receives a generated six-character code.
 
 Run the automated checks with:
 
@@ -27,7 +27,7 @@ npm test
 
 The service provides the seam for a later network-backed adapter. It owns room creation/joining, team assignment, guest readiness, and fixture data. Rooms have a six-player cap across four teams, with at most two players per team. The host plus at least one guest is required to start, and every guest must be Ready; all four teams do not need to be filled. New players are assigned to the first team with an open seat. The host lobby includes explicit simulated guest controls so the readiness and start states can be exercised in one browser. In the guest lobby, **SIMULATE HOST START** represents the host's action in this single-client preview; a real guest cannot start a match.
 
-The sample codes are fixed, local fixtures: `SUNNY1` (one simulated host; joinable) and `FULL66` (six players; full). The Maps dialog intentionally contains exactly one option: **Sunny Meadow**. Room state and the player name are held in memory only and reset on reload. Game-start loading ends at a labeled placeholder; gameplay and results are out of scope.
+The sample codes are fixed, local fixtures: `AB12CD` (one simulated host; joinable) and `FULL88` (six players; full). The Maps dialog intentionally contains exactly one option: **Sunny Meadow**. Room state and the player name are held in memory only and reset on reload. Game-start loading ends at a labeled placeholder; gameplay and results are out of scope.
 
 The existing Sprint 1 WebRTC module and signaling server remain in the repository but are not used by the Sprint 2 UI. Keep the Sprint 1 and Sprint 2 contracts separate until a later sprint explicitly connects them.
 

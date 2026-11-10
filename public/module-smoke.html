@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>GODHA network module smoke test</title>
+  </head>
+  <body>
+    <h1>Network-only smoke test</h1>
+    <p id="result" role="status">Creating a room using the network module only…</p>
+    <script type="module">
+      import { GodhaNetwork } from "/js/network.js";
+      const result = document.querySelector("#result");
+      const network = new GodhaNetwork();
+      try {
+        const code = await network.createRoom();
+        result.textContent = `PASS: network module created room ${code} without the sample UI. Close this tab to close the room.`;
+      } catch (error) {
+        result.textContent = `FAIL: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    </script>
+  </body>
+</html>

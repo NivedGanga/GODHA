@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101820" />
+    <title>GODHA · Connection Lab</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div class="eyebrow">SPRINT 1 · FOUNDATION PROTOTYPE</div>
+        <h1>GODHA <span>Connection Lab</span></h1>
+        <p>Create a room, invite up to three people, and move together over direct peer connections.</p>
+      </header>
+
+      <section class="panel controls" aria-labelledby="room-heading">
+        <h2 id="room-heading">Room</h2>
+        <div class="actions">
+          <button id="create-button" class="button primary" type="button">Create room</button>
+          <div class="join-form">
+            <label class="visually-hidden" for="room-code-input">Room code</label>
+            <input id="room-code-input" name="room-code" autocomplete="off" maxlength="6" placeholder="ROOM CODE" aria-describedby="join-help" />
+            <button id="join-button" class="button secondary" type="button">Join</button>
+          </div>
+        </div>
+        <p id="join-help" class="hint">Enter the six-character code shared by the host.</p>
+
+        <div id="room-details" class="room-details" hidden>
+          <div class="code-row">
+            <div>
+              <div class="label">Room code</div>
+              <div id="room-code-display" class="room-code">------</div>
+            </div>
+            <button id="copy-button" class="button quiet" type="button">Copy code</button>
+          </div>
+          <div class="room-actions">
+            <button id="lock-button" class="button quiet" type="button" hidden>Lock joins</button>
+            <button id="diagnostics-button" class="button quiet" type="button">Peer diagnostics</button>
+            <button id="leave-button" class="button danger" type="button">Leave room</button>
+          </div>
+        </div>
+        <div id="status" class="status" role="status" aria-live="polite">Not connected to a room.</div>
+        <pre id="diagnostics" class="diagnostics" aria-live="polite" hidden></pre>
+      </section>
+
+      <section class="workspace">
+        <section class="panel player-panel" aria-labelledby="players-heading">
+          <div class="section-heading">
+            <h2 id="players-heading">Players</h2>
+            <span id="player-count" class="count">0 / 4</span>
+          </div>
+          <ul id="player-list" class="player-list" aria-live="polite">
+            <li class="empty">Create or join a room to see players.</li>
+          </ul>
+          <div class="legend">
+            <span><i class="dot connected"></i> Connected</span>
+            <span><i class="dot connecting"></i> Connecting</span>
+            <span><i class="dot disconnected"></i> Disconnected</span>
+          </div>
+        </section>
+
+        <section class="panel canvas-panel" aria-labelledby="canvas-heading">
+          <div class="section-heading">
+            <div>
+              <h2 id="canvas-heading">Shared position test</h2>
+              <p class="hint">Use arrow keys to move your dot, or click/tap anywhere on the field.</p>
+            </div>
+            <span class="network-badge">P2P DATA</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="playfield" width="640" height="400" aria-label="Shared player position test field"></canvas>
+          </div>
+        </section>
+      </section>
+
+      <footer class="footer">
+        Signaling is used for room setup and WebRTC negotiation. Position updates travel through peer data channels.
+      </footer>
+    </main>
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

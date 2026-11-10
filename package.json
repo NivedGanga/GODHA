@@ -1,0 +1,23 @@
+{
+  "name": "godha-sprint-1-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework-agnostic WebRTC room and 2D state-sync foundation for GODHA Sprint 1.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.server.json && tsc -p tsconfig.web.json",
+    "start": "npm run build && node dist/server.js",
+    "test": "npm run build && node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.8.3"
+  }
+}

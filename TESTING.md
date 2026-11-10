@@ -7,7 +7,7 @@
 | Check | Result and evidence |
 |---|---|
 | Automated suite | **Pass:** `npm test` builds both TypeScript targets and passes 3 test groups: UI-independent module import, room lifecycle/admission, and signaling relay restrictions. |
-| Fresh install and startup | **Pass:** a fresh source copy with no installed packages or generated files ran `npm ci`, built, passed all three test groups and served the page and `/health` over HTTP. Environment: Node 24.22.1. This is a fresh-directory check, not a separate clean operating-system installation. |
+| Fresh install and startup | **Pass:** a fresh clone of commit `ddc0370` ran `npm ci`, `npm start` and all three test groups, serving the page and `/health` over HTTP. Environment: Node 24.22.1. This was a fresh checkout on the same machine, not a separate clean operating-system installation. |
 | Four browser clients | **Pass:** one host and three guests in separate tabs on one browser instance showed the same four connected player names and four distinct starting positions. |
 | Position sync | **Pass for sequential movement:** a brief arrow tap moved the host from x 25%, y 30% to x 27%, y 30%; all three guests displayed the new position. Clicking the canvas center moved the host to x 50%, y 50%, and all guests reflected it. Each guest then moved in turn, and all four clients showed the same updated positions. This did not measure latency or test simultaneous movement. |
 | Direct peer connections | **Pass in the same-machine test:** the sample's `RTCPeerConnection.getStats()` diagnostics across the host and two guests covered all six pairs; every data channel was open and every selected candidate pair was `host ↔ host`. This does not prove connectivity across restrictive NATs. |

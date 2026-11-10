@@ -13,7 +13,7 @@ npm ci
 npm start
 ```
 
-Open **http://localhost:3000**. The startup screen advances to the player-name form. The room code `AB12CD` opens a joinable demo room; `FULL88` is the six-player full-room fixture. Any other valid-looking code that is not in the fixture set is reported as unavailable. A newly created room receives a generated six-character code.
+Open **http://localhost:3000**. The startup screen advances to the player-name form. The room code `AB12CD` opens a joinable demo room; `FULL88` is the six-player full-room fixture. Join feedback is specific: a blank code says **Enter a room code first.**, a malformed code says **Enter a six-character room code.**, an unknown code says **We couldn't find that room. Check the code and try again.**, and `FULL88` says **That room is full (6 of 6 players). Try another code.** A newly created room receives a generated six-character code.
 
 Run the automated checks with:
 
@@ -26,6 +26,14 @@ npm test
 `src/room-service.ts` defines the `RoomService` interface and the local `SimulatedRoomService` adapter. The UI in `src/app.ts` imports only that service. It does **not** import `src/network.ts`, open a signaling WebSocket, construct an `RTCPeerConnection`, or make a real network room.
 
 The service provides the seam for a later network-backed adapter. It owns room creation/joining, team assignment, guest readiness, and fixture data. Rooms have a six-player cap across four teams, with at most two players per team. The host plus at least one guest is required to start, and every guest must be Ready; all four teams do not need to be filled. New players are assigned to the first team with an open seat. The host lobby includes explicit simulated guest controls so the readiness and start states can be exercised in one browser. In the guest lobby, **SIMULATE HOST START** represents the host's action in this single-client preview; a real guest cannot start a match.
+
+### Replacing the mock service later
+
+1. Add a network-backed adapter (for example, `src/network-room-service.ts`) that implements `RoomService` and returns the same `Room` / `RoomPlayer` shapes. Keep room creation, membership, team assignment, capacity, and readiness authoritative on the server rather than duplicating those decisions in the browser.
+2. The current `RoomService` methods are synchronous. If server calls are asynchronous, change the interface to return promises and update the UI event handlers in `src/app.ts` to await results while retaining the existing loading and inline-error states. Add an explicit subscription/update contract if the UI must render server-pushed room changes.
+3. Switch the composition point at the top of `src/app.ts` from `new SimulatedRoomService()` to the new adapter, leaving screen rendering dependent on the service contract rather than transport details. Keep the signaling/WebRTC module separate until that integration is deliberately in scope.
+4. Treat `AB12CD`, `FULL88`, `addSimulatedGuest`, and fixture lookup as preview/test-only behavior. Put production demo data behind a server-owned development seed or a separate optional demo capability; do not require those simulated controls in the production adapter.
+5. Keep the simulated adapter for fast unit tests, then add shared adapter-contract tests and server integration tests for joining, capacity, team assignment, readiness, and distinct error feedback before enabling the network-backed adapter by default.
 
 The sample codes are fixed, local fixtures: `AB12CD` (one simulated host; joinable) and `FULL88` (six players; full). The Maps dialog intentionally contains exactly one option: **Sunny Meadow**. Room state and the player name are held in memory only and reset on reload. Game-start loading ends at a labeled placeholder; gameplay and results are out of scope.
 

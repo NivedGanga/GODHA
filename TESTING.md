@@ -19,7 +19,7 @@ Use a sandbox or other approved test browser; do not use the owner's Mac for pro
 3. Settings opens and closes, including with Escape.
 4. Create Room shows a six-character code, `SIMULATED`, the host, four teams, two seats per team, and **Sunny Meadow**. Copy room code reports **Copied!**.
 5. Start stays disabled with the host alone. Add one simulated guest, then mark that guest Ready. Start becomes available even though teams are not full. Add another guest left Not Ready; Start disables until every guest is Ready.
-6. Joining with a blank value, malformed value, unknown six-character value, or `FULL88` shows an inline message. `AB12CD` opens the guest lobby.
+6. Joining with a blank value shows **Enter a room code first.**; a malformed value shows **Enter a six-character room code.**; an unknown six-character value shows **We couldn't find that room. Check the code and try again.**; and `FULL88` shows **That room is full (6 of 6 players). Try another code.** Verify each message appears inline in the join dialog and differs from the other three. `AB12CD` opens the guest lobby.
 7. Guest Ready toggles between Ready and Not Ready. The simulated-host action stays unavailable until the host plus at least one guest are present and all guests are Ready; once available it leads to game-start loading.
 8. Maps opens and closes, and contains only the `Sunny Meadow` option.
 9. Cancel, the close button, and Escape dismiss the Join dialog. All controls can be reached and activated by keyboard.
@@ -28,4 +28,4 @@ Use a sandbox or other approved test browser; do not use the owner's Mac for pro
 
 ## Verification record
 
-After the fixture correction, `npm test` passed all 10 tests in the Linux sandbox. A targeted browser smoke check in Chromium 151.0.7922.34 confirmed that `AB12CD` opens the guest lobby with 2/6 players and all four team cards, while `FULL88` is seeded with six players and rejects another join with “That room is full (6 of 6 players). Try another code.” No uncaught page errors occurred. The broader viewport checklist above was not rerun for this fixture-only change. No project testing was performed on the owner’s Mac.
+On the Linux Sandbox, `npm ci && npm test` passed all 10 tests after the clean-build and feedback changes. A Chromium 151.0.7922.34 smoke check verified distinct inline messages for blank, malformed, unknown, and full room codes; `AB12CD` opened a guest lobby with 2/6 players and all four team cards; and `FULL88` was rejected with “That room is full (6 of 6 players). Try another code.” No uncaught browser exceptions occurred. The broader viewport checklist above was not rerun. No project testing was performed on the owner’s Mac.

@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": ["src/app.ts", "src/room-service.ts"]
+  "include": ["src/app.ts", "src/network.ts", "src/room-service.ts"]
 }

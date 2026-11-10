@@ -71,18 +71,19 @@ test("guests can join AB12CD and readiness updates are returned to the room view
   assert.equal(canStartRoom(room), true);
 });
 
-test("joining rejects missing, malformed, unknown, and six-player full room codes", () => {
+test("joining shows distinct feedback for missing, malformed, unknown, and full room codes", () => {
   const rooms = service();
   const failures = [
-    ["", "INVALID_CODE"],
-    ["BAD", "INVALID_CODE"],
-    ["ABC123", "ROOM_NOT_FOUND"],
-    ["FULL88", "ROOM_FULL"],
+    ["", "ROOM_CODE_REQUIRED", "Enter a room code first."],
+    ["BAD", "INVALID_CODE", "Enter a six-character room code."],
+    ["ABC123", "ROOM_NOT_FOUND", "We couldn't find that room. Check the code and try again."],
+    ["FULL88", "ROOM_FULL", "That room is full (6 of 6 players). Try another code."],
   ];
-  for (const [code, expected] of failures) {
+  for (const [code, expectedCode, expectedMessage] of failures) {
     assert.throws(() => rooms.joinRoom("Player", code), (error) => {
       assert.ok(error instanceof RoomServiceError);
-      assert.equal(error.code, expected);
+      assert.equal(error.code, expectedCode);
+      assert.equal(error.message, expectedMessage);
       return true;
     });
   }

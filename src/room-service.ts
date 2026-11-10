@@ -34,6 +34,7 @@ export interface Room {
 
 export type RoomErrorCode =
   | "NAME_REQUIRED"
+  | "ROOM_CODE_REQUIRED"
   | "INVALID_CODE"
   | "ROOM_NOT_FOUND"
   | "ROOM_FULL"
@@ -143,6 +144,9 @@ export class SimulatedRoomService implements RoomService {
   joinRoom(playerName: string, rawCode: string): Room {
     const name = validateName(playerName);
     const code = rawCode.trim().toUpperCase();
+    if (!code) {
+      throw new RoomServiceError("ROOM_CODE_REQUIRED", "Enter a room code first.");
+    }
     if (!ROOM_CODE_PATTERN.test(code)) {
       throw new RoomServiceError("INVALID_CODE", "Enter a six-character room code.");
     }
